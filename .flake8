@@ -1,0 +1,9 @@
+[flake8]
+ignore = E501, E265, F811, B010, W503
+max-line-length = 160
+exclude =
+      venv,
+      static,
+      alembic,
+      .git,
+      __pycache__

@@ -1,0 +1,25 @@
+import pytest
+
+from tokens import TokenSeq
+from algorithms.numbers_merge import NumbersMerge
+
+
+@pytest.mark.parametrize('input, token_values', [
+    ('Насос циркуляционный Stratos MAXO 65/0,5-9 PN6/10', ['Насос', 'циркуляционный', 'Stratos', 'MAXO', '65/0,5-9', 'PN', '6', '10']),
+    ('Насос многоступенчатый Lowara 1SV12F007T/D 3×230/400 0.75 кВт 1', ['Насос', 'многоступенчатый', 'Lowara', '1', 'SV', '12', 'F', '007', 'T', 'D', '3×230/400', '0.75', 'кВт', '1'])
+])
+def test_numbers_merge(input: str, token_values: list[str]):
+    seq = TokenSeq.from_string(input)
+    res = NumbersMerge().parse_by_tokens(seq)
+    for token, expected_value in zip(res.seq.tokens, token_values):
+        assert token.value == expected_value
+
+
+@pytest.mark.parametrize('input, token_values', [
+    ('Проволока нержавеющая сварочная MIG ER-3210,8 мм', ['Проволока', 'нержавеющая', 'сварочная', 'MIG', 'ER', '3210', '8', 'мм']),
+])
+def test_dont_merge(input: str, token_values: list[str]):
+    seq = TokenSeq.from_string(input)
+    res = NumbersMerge().parse_by_tokens(seq)
+    for token, expected_value in zip(res.seq.tokens, token_values):
+        assert token.value == expected_value
