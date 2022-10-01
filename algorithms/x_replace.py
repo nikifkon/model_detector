@@ -3,6 +3,12 @@ from tokens import Token, TokenSeq, DigitToken
 
 
 class XReplace(TokenBasedAlgorithm[NewSequenceResult]):
+    """
+    {digit}({seps_to_replace}|{values_to_replace}){digit}
+
+    logs:
+    - replaced_char
+    """
     def parse_by_tokens(self, token_seq: TokenSeq) -> NewSequenceResult:
         seps_to_replace = set('*')
         values_to_replace = set('xXхХ')
@@ -27,6 +33,7 @@ class XReplace(TokenBasedAlgorithm[NewSequenceResult]):
                 new_seps.append(target_sep)
             else:
                 new_tokens.append(token)
-                new_seps.append(context.right_sep)
+                if context.right_sep is not None:
+                    new_seps.append(context.right_sep)
 
         return NewSequenceResult(TokenSeq(new_tokens, new_seps))

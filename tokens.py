@@ -12,6 +12,11 @@ class Token:
         return self.value
 
 
+class BreakToken(Token):
+    def __init__(self):
+        super().__init__('')
+
+
 class DigitToken(Token):
     char_set = set(digits)
 
@@ -69,6 +74,7 @@ class TokenSeq:
                 cur.write(c)
             prev_type = cur_type
 
+        tokens.append(BreakToken())
         return TokenSeq(tokens, seps)
 
     def iter_with_context(self):
@@ -78,7 +84,7 @@ class TokenSeq:
                 self.tokens[i - 1] if i - 1 >= 0 else None,
                 self.tokens[i + 1] if i + 1 < len(self.tokens) else None,
                 self.seps[i],
-                self.seps[i + 1],
+                self.seps[i + 1] if i + 1 < len(self.seps) else None,
                 i
             ), token
 
@@ -87,12 +93,11 @@ class TokenSeq:
             yield i, token
 
     def __str__(self):
-        assert len(self.seps) == len(self.tokens) + 1
+        assert len(self.seps) == len(self.tokens)
         cur = StringIO()
-        cur.write(self.seps[0])
-        for token, sep in zip(self.tokens, self.seps[1:]):
-            cur.write(token.value)
+        for token, sep in zip(self.tokens, self.seps):
             cur.write(sep)
+            cur.write(token.value)
         return cur.getvalue()
 
     def __repr__(self):
