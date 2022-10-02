@@ -1,11 +1,10 @@
 import json
-from io import StringIO
 from typing_extensions import Self
 from algorithms.base import BaseLogEntry, TokenBasedAlgorithm, NewSequenceResult
 from tokens import BreakToken, Token, TokenSeq, DigitToken
 
 
-class Number(Token):
+class NumberToken(Token):
     pass
 
 
@@ -59,7 +58,7 @@ class NumbersMerge(TokenBasedAlgorithm[NumberMergeResult]):
             return sep in set('×-,./')
 
         def sep0(sep):
-            return ' ' in sep
+            return sep not in set(['', '-'])
 
         res = NumberMergeResult()
         # find
@@ -94,29 +93,5 @@ class NumbersMerge(TokenBasedAlgorithm[NumberMergeResult]):
                     count_of_digits = 0
 
         # merge
-        new_tokens = []
-        new_seps = []
-        near_chank = chunks.pop(0) if len(chunks) else None
-
-        token_value = StringIO()
-        for context, token in seq.iter_with_context():
-            if near_chank and (near_chank[0] <= context.token_index <= near_chank[1] - 1):
-                not_first = near_chank[0] != context.token_index
-                is_last = context.token_index == near_chank[1] - 1
-
-                if not_first:
-                    token_value.write(context.left_sep)
-
-                token_value.write(token.value)
-
-                if is_last:
-                    new_tokens.append(Number(token_value.getvalue()))
-                    token_value = StringIO()
-                    near_chank = chunks.pop(0) if len(chunks) else None
-            else:
-                new_seps.append(context.left_sep)
-                new_tokens.append(token)
-        new_seps.append(seq.seps[-1])
-
-        res.seq = TokenSeq(new_tokens, new_seps)
+        res.seq = seq.merge(chunks, lambda x: NumberToken(str(x)))
         return res

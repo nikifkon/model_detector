@@ -40,7 +40,7 @@ class TokenBasedAlgorithm(BaseAlgorithm[TResult]):
     def get_tokens(self, input: str) -> TokenSeq:
         return TokenSeq.from_string(input)
 
-    def parse(self, input: str) -> TResult:  # TODO: may take TokenSeq?
+    def parse(self, input: str) -> TResult:
         tokens = self.get_tokens(input)
         return self.parse_by_tokens(tokens)
 
@@ -62,3 +62,12 @@ class NewSequenceResult(Generic[TLogEntry], BaseResult[TLogEntry]):
     def __init__(self, seq: TokenSeq = None, **kwags):
         self.seq = seq
         super().__init__(**kwags)
+
+
+class EmptyLog(BaseLogEntry):
+    def dump_data(self) -> str:
+        return '{}'
+
+    @classmethod
+    def load_data(cls, dump: str) -> Self:
+        return cls()

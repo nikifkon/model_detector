@@ -1,6 +1,6 @@
 import pytest
 
-from tokens import TokenSeq
+from tokens import AsciiToken, TokenSeq
 
 
 @pytest.mark.parametrize('input', [
@@ -23,3 +23,15 @@ def test_tokenize_simple(input: str, token_values: list[str]):
     seq = TokenSeq.from_string(input)
     for token, expected_value in zip(seq.tokens, token_values):
         assert token.value == expected_value
+
+
+def test_simple_merge():
+    seq = TokenSeq.from_string('1 2 3 4')
+    assert str(seq.merge([(1, 2)], lambda span: AsciiToken('A'))) == '1 A 3 4'
+    assert str(seq.merge([(0, 2)], lambda span: AsciiToken('A'))) == 'A 3 4'
+    assert str(seq.merge([(3, 4)], lambda span: AsciiToken('A'))) == '1 2 3 A'
+
+
+def test_multy_merge():
+    seq = TokenSeq.from_string('1 2 3 4')
+    assert str(seq.merge([(1, 2), (2, 3)], lambda span: AsciiToken('A'))) == '1 A A 4'
