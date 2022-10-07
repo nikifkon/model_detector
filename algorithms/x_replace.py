@@ -11,7 +11,7 @@ class XReplace(TokenBasedAlgorithm[NewSequenceResult]):
     """
     values_to_replace = set('xXхХ*')
 
-    def get_target():
+    def get_target(self):
         return Sep('×')
 
     def parse_by_tokens(self, token_seq: TokenSeq) -> NewSequenceResult:
