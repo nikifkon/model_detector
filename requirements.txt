@@ -2,3 +2,5 @@ pytest
 pre-commit
 click
 typing-extensions
+mysql-connector-python
+python-dotenv

@@ -1,10 +1,10 @@
 import json
 from typing_extensions import Self
 from algorithms.base import BaseLogEntry, TokenBasedAlgorithm, NewSequenceResult
-from tokens import BreakToken, Token, TokenSeq, DigitToken
+from tokens import BreakToken, ValueToken, TokenSeq, DigitToken, Sep
 
 
-class NumberToken(Token):
+class NumberToken(ValueToken):
     pass
 
 
@@ -67,15 +67,22 @@ class NumbersMerge(TokenBasedAlgorithm[NumberMergeResult]):
         chank_start = None
 
         count_of_digits = 0
-        for context, token in seq.iter_with_context():
+
+        g = seq.generate_with_context()
+        for context, token in g:
             if cont:
-                if isinstance(token, DigitToken) and sep1(context.left_sep):
-                    count_of_digits += 1
-                    res.logs.sep1.append(context.left_sep)
-                    continue
-                elif count_of_digits > 0 and (sep2(context.left_sep) or isinstance(token, BreakToken)):
-                    res.logs.sep2.append(context.left_sep)
-                    chunks.append((chank_start, context.token_index))
+                if isinstance(token, Sep) and sep1(token.value):
+                    res.logs.sep1.append(token.value)
+                    next_context, next_token = g.send(+1)
+                    if isinstance(next_token, DigitToken):
+                        count_of_digits += 1
+                        continue
+                    else:
+                        res.logs.sep1.pop()
+
+                if count_of_digits > 0 and (isinstance(token, BreakToken) or (isinstance(token, Sep) and (sep2(token.value) or isinstance(next_token, BreakToken)))):
+                    res.logs.sep2.append(token.value)
+                    chunks.append((chank_start, context.value_index + (not isinstance(token, ValueToken))))
                     cont = False
                     chank_start = None
                 else:
@@ -84,12 +91,12 @@ class NumbersMerge(TokenBasedAlgorithm[NumberMergeResult]):
                         res.logs.sep1.pop()
                     cont = False
                     chank_start = None
-
             if not cont:
-                if isinstance(token, DigitToken) and (sep0(context.left_sep) or context.token_index == 0):
-                    res.logs.sep0.append(context.left_sep)
+                if isinstance(token, DigitToken) and (context.token_index == 0 or (isinstance(context.prev, Sep) and sep0(context.prev.value))):
+                    if context.prev:
+                        res.logs.sep0.append(context.prev.value)
                     cont = True
-                    chank_start = context.token_index
+                    chank_start = context.value_index
                     count_of_digits = 0
 
         # merge

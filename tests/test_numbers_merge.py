@@ -12,7 +12,7 @@ from algorithms.numbers_merge import NumberMergeLog, NumbersMerge
 def test_numbers_merge(input: str, token_values: list[str]):
     seq = TokenSeq.from_string(input)
     res = NumbersMerge().parse_by_tokens(seq)
-    for token, expected_value in zip(res.seq.tokens, token_values):
+    for token, expected_value in zip(res.seq.iter_by_values(), token_values):
         assert token.value == expected_value
 
 
@@ -22,7 +22,7 @@ def test_numbers_merge(input: str, token_values: list[str]):
 def test_dont_merge(input: str, token_values: list[str]):
     seq = TokenSeq.from_string(input)
     res = NumbersMerge().parse_by_tokens(seq)
-    for token, expected_value in zip(res.seq.tokens, token_values):
+    for token, expected_value in zip(res.seq.iter_by_values(), token_values):
         assert token.value == expected_value
 
 

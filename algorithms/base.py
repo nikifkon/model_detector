@@ -52,7 +52,7 @@ class TokenBasedAlgorithm(BaseAlgorithm[TResult]):
 class BaseSelector(Generic[TResult], metaclass=ABCMeta):
 
     @abstractmethod
-    def select(self, inputs: TResult) -> str:
+    def select(self, input: TResult) -> str:
         pass
 
 

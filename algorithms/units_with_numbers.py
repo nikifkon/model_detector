@@ -2,7 +2,7 @@ from typing_extensions import Self
 from algorithms.base import (BaseResult, TokenBasedAlgorithm, BaseLogEntry)
 from algorithms.numbers_merge import NumberToken
 from algorithms.units import Unit, UnitExpression
-from tokens import DigitToken, Token, TokenSeq
+from tokens import DigitToken, Token, TokenSeq, Sep
 
 
 class UnitProperty(Token):
@@ -49,37 +49,26 @@ class UnitExtractor(TokenBasedAlgorithm[UnitExtractorResult]):
 
     def parse_by_tokens(self, token_seq: TokenSeq) -> UnitExtractorResult:
         res = UnitExtractorResult()
-        # find
-        cont = False
 
         new_tokens = []
-        new_seps = []
 
-        for context, token in token_seq.iter_with_context():
-            if cont:
-                if isinstance(token, UnitExpression):
+        g = token_seq.generate_with_context()
+        for context, token in g:
+            if (is_digit := isinstance(token, DigitToken)) or (is_number := isinstance(token, NumberToken)):
+                value_token = token
+                if isinstance(context.next, Sep) and (is_digit and self.is_digit_sep(context.next.value)) or (is_number and self.is_number_sep(context.next.value)):
+                    context, token = g.send(+1)
+                if isinstance(context.next, UnitExpression) or isinstance(context.next, Unit):
                     new_tokens.pop()
-                    prop = UnitProperty(context.prev, token)
+                    prop = UnitProperty(value_token, context.next)
                     new_tokens.append(prop)
                     res.units.add(prop)
-                    cont = False
                     continue
-                elif isinstance(token, Unit):
-                    new_tokens.pop()
-                    prop = UnitProperty(context.prev, token)
-                    new_tokens.append(prop)
-                    res.units.add(prop)
-                    cont = False
+                else:
+                    new_tokens.append(value_token)
                     continue
-                cont = False
-            if not cont:
-                if isinstance(token, DigitToken) and context.right_sep is not None and self.is_digit_sep(context.right_sep):
-                    cont = True
-                elif isinstance(token, NumberToken) and context.right_sep is not None and self.is_number_sep(context.right_sep):
-                    cont = True
-                new_seps.append(context.left_sep)
-                new_tokens.append(token)
-        res.seq = TokenSeq(new_tokens, new_seps)
+            new_tokens.append(token)
+        res.seq = TokenSeq(new_tokens)
         return res
 
     def is_number_sep(self, sep):

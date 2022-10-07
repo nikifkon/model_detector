@@ -1,5 +1,6 @@
 import pytest
 
+from tokens import Sep, TokenSeq
 from algorithms.units import Unit, UnitMerge, UnitExpression
 
 
@@ -7,7 +8,7 @@ from algorithms.units import Unit, UnitMerge, UnitExpression
     ('Проволока стальная сварочная 4 мм Св-08ХН2ГМТА', ['мм']),
     ('test 220В', ['В']),
     ('Камера холодильная толщина 100 мм 4100х5600х2240 мм 42,96 м3 POLAIR', ['мм', 'мм', 'м^3']),
-    ('(125кг на полку) ', ['кг']),
+    ('(125кг на полку) ', ['кг', 'на']),
     ('Пилорама ленточная Алтай-3 (900) с бензиновым двигателем Lifan 15л.с.', ['л/с']),
 ])
 def test_simple_merge(input, values):
@@ -30,8 +31,8 @@ def test_unit_prefixes_suffixes(unit, values, string):
 
 
 @pytest.mark.parametrize('unit_exp, value', [
-    (UnitExpression([Unit('л'), Unit('с')], ['/']), ('л/с')),
-    (UnitExpression([Unit('л'), Unit('с')], ['.']), ('л/с'))
+    (UnitExpression(TokenSeq([Unit('л'), Sep('/'), Unit('с')])), 'л/с'),
+    (UnitExpression(TokenSeq([Unit('л'), Sep('.'), Unit('с'), Sep('.')])), 'л/с')
 ])
 def test_unit_expression(unit_exp, value):
     assert unit_exp.value == value

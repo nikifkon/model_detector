@@ -1,6 +1,6 @@
-from itertools import zip_longest
+from itertools import chain
 from algorithms.base import (EmptyLog, NewSequenceResult, TokenBasedAlgorithm)
-from tokens import DigitToken, TokenSeq, CharToken
+from tokens import DigitToken, TokenSeq, CharToken, Sep
 from data.units import UNIT_MAP, SUFFIXES, PREFIXES
 
 
@@ -42,33 +42,22 @@ class Unit(CharToken):
 class UnitExpression(Unit):
     valid_operators = set('./×')
 
-    def __init__(self, units: list[Unit], operators: list[str]):
-        assert len(units) == len(operators) + 1
-        self.is_valid, self.operators = self.norm_operators(operators)
-        if self.is_valid and len(operators) == 0 and units[0].banned:
-            self.is_valid = False
-        self.units = units
-        self.value = ''.join(self._iter_zip(map(lambda u: str(u), units), self.operators))
+    def __init__(self, seq: TokenSeq):
+        self.seq = self.handle_units(seq)
+        self.is_valid = not (len(seq.tokens) == 1 and seq.tokens[0].banned)
+        self.value = str(self.seq)
 
-    def norm_operators(self, operators: list[str]) -> tuple[bool, list[str]]:
+    def handle_units(self, seq: TokenSeq) -> TokenSeq:
         norm = []
-        is_valid = True
-        for operator in operators:
-            if operator == '.':
-                norm.append('/')
-            elif operator in self.valid_operators:
-                norm.append(operator)
+        for context, token in seq.iter_with_context():
+            if token.value == '.':
+                if isinstance(context.next, Unit):
+                    norm.append(Sep('/'))
+                else:
+                    pass
             else:
-                is_valid = False
-                norm.append(operator)
-        return is_valid, norm
-
-    def _iter_zip(self, g1, g2):
-        for el1, el2 in zip_longest(g1, g2):
-            if el1 is not None:
-                yield el1
-            if el2 is not None:
-                yield el2
+                norm.append(token)
+        return TokenSeq(norm)
 
 
 class UnitMerge(TokenBasedAlgorithm[NewSequenceResult[EmptyLog]]):
@@ -80,68 +69,67 @@ class UnitMerge(TokenBasedAlgorithm[NewSequenceResult[EmptyLog]]):
         pass
 
     def parse_by_tokens(self, token_seq: TokenSeq) -> NewSequenceResult[EmptyLog]:
-        new_tokens = []
-        new_seps = []
-        to_skip = False
-        for context, token in token_seq.iter_with_context():
-            if to_skip:
-                to_skip = False
-                continue
-            if (u := Unit(token.value)).is_valid:  # TODO use some cast iterface
-                new_seps.append(context.left_sep)
-                if isinstance(context.next, DigitToken) and (u2 := Unit(token.value + context.next.value)).is_valid:
-                    new_tokens.append(u2)
-                    to_skip = True
-                new_tokens.append(u)
-            else:
-                new_seps.append(context.left_sep)
-                new_tokens.append(token)
+        res = []
 
-        temp_seq = TokenSeq(new_tokens, token_seq.seps)
+        source = token_seq.iter_with_context()
+        res = []
+        try:
+            while nxt := next(source):
+                context, token = nxt
+                if (unit := Unit(token.value)).is_valid:
+                    if context.next.value == '^':
+                        context2, token2 = next(source)
+                        if isinstance(context.next, DigitToken):
+                            _, token3 = next(source)
+                            unit = Unit(token.value + token2.value + token3.value)
+                            assert unit.is_valid
+                        else:
+                            source = chain((context2, token2), source)
+
+                    elif isinstance(context.next, DigitToken):
+                        _, token3 = next(source)
+                        unit = Unit(token.value + token3.value)
+                        assert unit.is_valid
+
+                    res.append(unit)
+                else:
+                    res.append(token)
+        except StopIteration:
+            temp_seq = TokenSeq(res)
 
         cont = False
-
         skipped_tokens = []
-        skipped_seps = []
-
-        new_tokens = []
-        new_seps = []
-
+        res = []
         units = []
-        operators = []
+
         for context, token in temp_seq.iter_with_context():
             if cont:
                 if isinstance(token, Unit):
-                    operators.append(context.left_sep)
                     units.append(token)
 
-                    skipped_tokens.append(context.left_sep)
-                    skipped_seps.append(token)
+                    skipped_tokens.append(token)
+                if isinstance(token, Sep) and token.value in UnitExpression.valid_operators:
+                    units.append(token)
+                    skipped_tokens.append(token)
 
                 else:
                     prefix_len = len(units)
                     while prefix_len > 0:
-                        unit_exp = UnitExpression(units[:prefix_len], operators[:prefix_len - 1])
+                        unit_exp = UnitExpression(TokenSeq(units[:prefix_len]))
                         if unit_exp.is_valid:
                             break
                         prefix_len -= 1
                     if prefix_len > 0:
-                        new_tokens.append(unit_exp)
-                        new_seps.append(skipped_seps[0])
+                        res.append(unit_exp)
                     else:
-                        new_tokens.extend(skipped_tokens)
-                        new_seps.extend(skipped_seps)
+                        res.extend(skipped_tokens)
                     cont = False
                     units.clear()
-                    operators.clear()
-            if not cont:
+            elif not cont:
                 if isinstance(token, Unit):
                     cont = True
                     units.append(token)
                     skipped_tokens = [token]
-                    skipped_seps = [context.left_sep]
                 else:
-                    new_seps.append(context.left_sep)
-                    new_tokens.append(token)
-
-        return NewSequenceResult(TokenSeq(new_tokens, new_seps))
+                    res.append(token)
+        return NewSequenceResult(TokenSeq(res))
