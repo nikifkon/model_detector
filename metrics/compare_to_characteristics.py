@@ -21,16 +21,16 @@ def test():
                     f.write(f'{id}: Производитель из характеристик ({expected_manufacturer}) не совпадает c обнаруженным производителем ({res.manufacturer.normal_form})\n')
             if 'Код товара' in data:
                 code_product = data['Код товара']
-                if code_product in res.model.normal_form:
-                    f.write(f'{id}: {title_product} Код товара ({code_product}) в модели {res.model.normal_form}\n')
+                if code_product in res.model_model.normal_form:
+                    f.write(f'{id}: {title_product} Код товара ({code_product}) в модели {res.model_model.normal_form}\n')
             if 'Артикул' in data:
                 article = data['Артикул']
-                if article in res.model.normal_form:
-                    f.write(f'{id}: {title_product} Артикул ({article}) в модели {res.model.normal_form}\n')
+                if article in res.model_model.normal_form:
+                    f.write(f'{id}: {title_product} Артикул ({article}) в модели {res.model_model.normal_form}\n')
             if 'Серия' in data:
                 series = data['Серия']
-                if series != res.model.series:
-                    f.write(f'{id}: {title_product} Серия из характеристик ({series}) не совпадает c обнаруженной серией ({res.model.series})\n')
+                if series != res.model_model.series:
+                    f.write(f'{id}: {title_product} Серия из характеристик ({series}) не совпадает c обнаруженной серией ({res.model_model.series})\n')
 
 
 if __name__ == '__main__':

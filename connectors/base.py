@@ -1,7 +1,8 @@
 from abc import ABCMeta, abstractmethod
-from typing import Iterator, Callable, NamedTuple
+from typing import Iterator, Callable, NamedTuple, Optional
 
 from connectors.models import ManufacturerModel, ModelModel
+from tokens import TokenSeq
 
 
 class BaseConnector(metaclass=ABCMeta):
@@ -25,9 +26,9 @@ class BaseConnector(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def check_model_existence(self, model: str, essence: str = None, manufacturer: str = None) -> tuple[bool, ModelModel]:
+    def check_model_existence(self, model: TokenSeq) -> Optional[ModelModel]:
         pass
 
     @abstractmethod
-    def check_manufacturer_existence(self, manufacturer: str) -> tuple[bool, ManufacturerModel]:
+    def check_manufacturer_existence(self, manufacturer: TokenSeq) -> Optional[ManufacturerModel]:
         pass

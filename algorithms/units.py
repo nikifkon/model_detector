@@ -132,4 +132,4 @@ class UnitMerge(TokenBasedAlgorithm[NewSequenceResult[EmptyLog]]):
                     skipped_tokens = [token]
                 else:
                     res.append(token)
-        return NewSequenceResult(TokenSeq(res))
+        return NewSequenceResult(None, TokenSeq(res))

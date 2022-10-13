@@ -132,6 +132,13 @@ class TokenSeq:
             else:
                 token_index += offset
 
+    def iter_ngrams_by_values(self, n: int = 2):
+        if n < 1:
+            raise ValueError(f'Undefined ngram for n = {n}')
+
+        values = list(self.iter_by_values())
+        return [self.get_sub(i, i + n) for i in range(len(values) - (n - 1))]
+
     def merge(self, chunks: list[tuple[int, int]], merge_seq: Callable[['TokenSeq'], Token]) -> 'TokenSeq':
         # assert end < len(self.tokens)  # can't merge BreakToken TODO validate
         new_tokens = []

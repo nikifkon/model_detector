@@ -21,4 +21,4 @@ class XReplace(TokenBasedAlgorithm[NewSequenceResult]):
                 new_tokens.append(self.get_target())
             else:
                 new_tokens.append(token)
-        return NewSequenceResult(TokenSeq(new_tokens))
+        return NewSequenceResult(None, TokenSeq(new_tokens))

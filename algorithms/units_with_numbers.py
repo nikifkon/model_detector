@@ -1,11 +1,15 @@
-from typing_extensions import Self
-from algorithms.base import (BaseResult, TokenBasedAlgorithm, BaseLogEntry)
+from dataclasses import dataclass
+from algorithms.base import NewSequenceResult, TokenBasedAlgorithm
 from algorithms.numbers_merge import NumberToken
 from algorithms.units import Unit, UnitExpression
 from tokens import DigitToken, Token, TokenSeq, Sep
 
 
-class UnitProperty(Token):
+class Property(Token):
+    pass
+
+
+class UnitProperty(Property):
     def __init__(self, property_value: Token, unit: Unit):
         self.property_value = property_value
         self.unit = unit
@@ -16,23 +20,18 @@ class UnitProperty(Token):
         return {prop.unit.get_prop_name(): [prop.property_value.value. prop.unit.value] for prop in collection}
 
 
-class UnitLog(BaseLogEntry):
-    def dump_data(self) -> str:
-        return {}
+# class UnitLog(BaseLogEntry):
+#     def dump_data(self) -> str:
+#         return {}
 
-    @classmethod
-    def load_data(cls, dump: str) -> Self:
-        return cls()
+#     @classmethod
+#     def load_data(cls, dump: str) -> Self:
+#         return cls()
 
 
-class UnitExtractorResult(BaseResult):
-    seq: str
+@dataclass
+class UnitExtractorResult(NewSequenceResult):
     units: set[UnitProperty]
-
-    def __init__(self, *args, **kwargs):
-        self.logs = UnitLog()
-        self.units = set()
-        super().__init__(*args, **kwargs)
 
 
 class UnitExtractor(TokenBasedAlgorithm[UnitExtractorResult]):
@@ -48,9 +47,9 @@ class UnitExtractor(TokenBasedAlgorithm[UnitExtractorResult]):
         pass
 
     def parse_by_tokens(self, token_seq: TokenSeq) -> UnitExtractorResult:
-        res = UnitExtractorResult()
-
+        res_log = None
         new_tokens = []
+        res_units = set()
 
         g = token_seq.generate_with_context()
         for context, token in g:
@@ -62,14 +61,14 @@ class UnitExtractor(TokenBasedAlgorithm[UnitExtractorResult]):
                     new_tokens.pop()
                     prop = UnitProperty(value_token, context.next)
                     new_tokens.append(prop)
-                    res.units.add(prop)
+                    res_units.add(prop)
                     continue
                 else:
                     new_tokens.append(value_token)
                     continue
             new_tokens.append(token)
-        res.seq = TokenSeq(new_tokens)
-        return res
+        res_seq = TokenSeq(new_tokens)
+        return UnitExtractorResult(res_log, res_seq, res_units)
 
     def is_number_sep(self, sep):
         return ')' not in sep

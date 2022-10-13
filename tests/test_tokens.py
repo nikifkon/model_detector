@@ -51,3 +51,14 @@ def test_get_subseq(input_string: str, start: int, end: int, expected_string: st
     seq = TokenSeq.from_string(input_string)
     res = seq.get_sub(start, end, index_by_values=True)
     assert str(res) == expected_string
+
+
+@pytest.mark.parametrize('input_string, n, expected_strings', [
+    ('1 2 3 4 5', 1, ['1', '2', '3', '4', '5']),
+    ('1 2 3 4 5', 2, ['1 2', '2 3', '3 4', '4 5']),
+    ('1 2 3 4 5', 3, ['1 2 3', '2 3 4', '3 4 5']),
+    ('1 2 3;4 5;', 3, ['1 2 3', '2 3;4', '3;4 5']),
+])
+def test_iter_ngrams_simple(input_string, n, expected_strings):
+    seq = TokenSeq.from_string(input_string)
+    assert list(map(str, seq.iter_ngrams_by_values(n))) == expected_strings

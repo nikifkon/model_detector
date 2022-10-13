@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractclassmethod, abstractmethod
+from dataclasses import dataclass
 from typing import Generic, TypeVar
 from typing_extensions import Self
 
@@ -18,11 +19,9 @@ class BaseLogEntry():
 TLogEntry = TypeVar('TLogEntry', bound=BaseLogEntry)
 
 
+@dataclass
 class BaseResult(Generic[TLogEntry], metaclass=ABCMeta):
-    logs: TLogEntry = None
-
-    def __init__(self):
-        pass
+    logs: TLogEntry
 
 
 TResult = TypeVar('TResult', bound=BaseResult)
@@ -56,12 +55,13 @@ class BaseSelector(Generic[TResult], metaclass=ABCMeta):
         pass
 
 
+@dataclass
 class NewSequenceResult(Generic[TLogEntry], BaseResult[TLogEntry]):
     seq: TokenSeq
 
-    def __init__(self, seq: TokenSeq = None, **kwags):
-        self.seq = seq
-        super().__init__(**kwags)
+    # def __init__(self, seq: TokenSeq = None, **kwags):
+    #     self.seq = seq
+    #     super().__init__(**kwags)
 
 
 class EmptyLog(BaseLogEntry):
