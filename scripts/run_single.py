@@ -16,7 +16,7 @@ logger.addHandler(file_handler)
 
 @click.command()
 @click.option('--development', '-d', is_flag=True, default=0, help='use development data')
-@click.option('--title_product', '-t', help='title of the product')
+@click.option('--title_product', '-t', required=True, help='title of the product')
 def run_single(development, title_product):
     if development:
         connector = TestingConnector()

@@ -23,7 +23,7 @@ Scripts:
 
 2. Parse single title: (for testing)
 
-```python -m scripts.run_single```
+```python -m scripts.run_single -t <TITLE>```
 
 3. Parse and update database
 
