@@ -3,14 +3,10 @@ from typing import Callable, Optional
 
 from algorithms.base import TokenBasedAlgorithm, BaseResult
 from connectors.models import ModelModel
-from tokens import TokenSeq, ValueToken
+from tokens import TokenSeq
 
 
-class Model(ValueToken):
-    pass
-
-
-@dataclass
+@dataclass(eq=True, frozen=True)
 class FindModelsResult(BaseResult):
     model: Optional[ModelModel]
 
@@ -27,7 +23,7 @@ class FindModels(TokenBasedAlgorithm[FindModelsResult]):
         res: list[tuple[TokenSeq, ModelModel]] = []
         # slow
         for n in range(2, len(list(token_seq.iter_by_values())) + 1):
-            for ngram in token_seq.iter_ngrams_by_values(n):
+            for ngram, start, end in token_seq.iter_ngrams_by_values(n):
                 if model := self.is_model_exists(ngram):
                     res.append((ngram, model))
         if len(res) == 0:

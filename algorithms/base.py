@@ -19,7 +19,7 @@ class BaseLogEntry():
 TLogEntry = TypeVar('TLogEntry', bound=BaseLogEntry)
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class BaseResult(Generic[TLogEntry], metaclass=ABCMeta):
     logs: TLogEntry
 
@@ -51,11 +51,11 @@ class TokenBasedAlgorithm(BaseAlgorithm[TResult]):
 class BaseSelector(Generic[TResult], metaclass=ABCMeta):
 
     @abstractmethod
-    def select(self, input: TResult) -> str:
+    def select(self, input: list[TResult]) -> TResult:
         pass
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class NewSequenceResult(Generic[TLogEntry], BaseResult[TLogEntry]):
     seq: TokenSeq
 

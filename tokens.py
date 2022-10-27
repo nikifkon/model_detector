@@ -2,17 +2,14 @@ from abc import ABCMeta
 from typing import Callable, Iterable, NamedTuple, Generator
 from io import StringIO
 from string import ascii_letters, digits
-from itertools import chain
+from itertools import chain, dropwhile
 
 
 class Token(metaclass=ABCMeta):
     def __init__(self, value: str):
         self.value = value
 
-    def str(self):
-        return self.value
-
-    def __repr__(self):
+    def __str__(self):
         return self.value
 
 
@@ -33,7 +30,7 @@ class BreakToken(Sep):
 
 
 class DigitToken(ValueToken):
-    char_set = set(digits)
+    char_set = {*digits, '+'}
 
 
 class CharToken(ValueToken, metaclass=ABCMeta):
@@ -48,8 +45,24 @@ class CyrillicToken(CharToken):
     char_set = set("АаБбВвГгДдЕеЁёЖжЗзИиЙйКкЛлМмНнОоПпРрСсТтУуФфХхЦцЧчШшЩщЪъЫыЬьЭэЮюЯя")
 
 
-class SpecialToken(ValueToken):
-    char_set = set("+")
+class DataToken(ValueToken, metaclass=ABCMeta):
+    pass
+
+
+class ModelToken(DataToken):
+    pass
+
+
+class ManufacturerToken(DataToken):
+    pass
+
+
+class ProductNameToken(DataToken):
+    pass
+
+
+class SereisToken(DataToken):
+    pass
 
 
 Context = NamedTuple('Context', [('prev', Token), ('next', Token), ('token_index', int), ('value_index', int)])
@@ -57,7 +70,10 @@ Context = NamedTuple('Context', [('prev', Token), ('next', Token), ('token_index
 
 class TokenSeq:
     def __init__(self, tokens: Iterable[Token]):
-        self.tokens: tuple[Token] = tuple(tokens)
+        tks = list(tokens)
+        if not isinstance(tks[-1], BreakToken):
+            tks.append(BreakToken())
+        self.tokens = tuple([t for t in tks if t is not None])
 
     @classmethod
     def from_string(self, input: str):
@@ -74,8 +90,6 @@ class TokenSeq:
                 cur_type = AsciiToken
             elif c in CyrillicToken.char_set:
                 cur_type = CyrillicToken
-            elif c in SpecialToken.char_set:
-                cur_type = SpecialToken
             else:
                 cur_type = Sep
 
@@ -89,7 +103,7 @@ class TokenSeq:
                 cur.write(c)
             prev_type = cur_type
 
-        tokens.append(BreakToken())  # TODO нужен ли он?
+        tokens.append(BreakToken())
         return TokenSeq(tokens)
 
     def iter_by_tokens(self) -> Iterable[Token]:
@@ -114,7 +128,7 @@ class TokenSeq:
                 value_index
             ), token
 
-    def generate_with_context(self) -> Generator[type[Context], int, None]:
+    def generate_with_context(self) -> Generator[tuple[Context, Token], int, None]:
         value_index = -1
         token_index = 0
         while token_index < len(self.tokens):
@@ -132,19 +146,28 @@ class TokenSeq:
             else:
                 token_index += offset
 
-    def iter_ngrams_by_values(self, n: int = 2):
+    def iter_ngrams_by_values(self, n: int = 2) -> Iterable[tuple['TokenSeq', int, int]]:
         if n < 1:
             raise ValueError(f'Undefined ngram for n = {n}')
 
         values = list(self.iter_by_values())
-        return [self.get_sub(i, i + n) for i in range(len(values) - (n - 1))]
+        return [(self.get_sub(i, i + n), i, i + n) for i in range(len(values) - (n - 1))]
+
+    def select_longest_ngrams_match(self, predicate: Callable[['TokenSeq'], bool]) -> Iterable[tuple['TokenSeq', int, int]]:
+        busy_positions = set()
+        for n in range(min(4, len(list(self.iter_by_values()))), 0, -1):
+            values = list(self.iter_by_values())
+            for i in range(len(values) - (n - 1)):
+                if i not in busy_positions and predicate(sub := self.get_sub(i, i + n)):
+                    busy_positions.update(range(i, i + n - 1))
+                    yield sub, i, i + n
 
     def merge(self, chunks: list[tuple[int, int]], merge_seq: Callable[['TokenSeq'], Token]) -> 'TokenSeq':
         # assert end < len(self.tokens)  # can't merge BreakToken TODO validate
         new_tokens = []
 
         span_tokens = []
-        chunks_todo = chunks.copy()
+        chunks_todo = list(chunks)
         i = -1
         for token in self.tokens:
             if isinstance(token, ValueToken):
@@ -175,6 +198,14 @@ class TokenSeq:
             if value_token_counter == end - 1:
                 return TokenSeq(res)
 
+    def dump_seq(self):
+        return ';'.join(map(lambda x: str(x).lower(), self.iter_by_values()))
+
+    def trim(self):
+        tks = list(self.iter_by_tokens())
+        trimmed = list(dropwhile(lambda token: isinstance(token, Sep), tks[::-1]))[::-1]
+        return TokenSeq(trimmed)
+
     def __str__(self):
         cur = StringIO()
         for token in self.tokens:
@@ -184,29 +215,10 @@ class TokenSeq:
     def __repr__(self):
         return str(self)
 
+    def __eq__(self, seq):
+        return len(seq.tokens) == len(self.tokens) and all(t1.value == t2.value for t1, t2 in zip(self.tokens, seq.tokens))
 
-# class Span():
-#     def __init__(self, tokens: list[Token], seps: list[str]):
-#         assert len(seps) + 1 == len(tokens)
-#         self.tokens = tokens
-#         self.seps = seps
 
-#     @classmethod
-#     def from_string(self, input: str) -> 'Span':
-#         pass
-
-#     @classmethod
-#     def from_seq(self, seq: TokenSeq, start: int, end: int) -> 'Span':
-#         pass
-
-#     def __str__(self):
-#         assert len(self.seps) + 1 == len(self.tokens)
-#         cur = StringIO()
-#         cur.write(self.tokens[0].value)
-#         for token, sep in zip(self.tokens[1:], self.seps):
-#             cur.write(sep)
-#             cur.write(token.value)
-#         return cur.getvalue()
-
-#     def __repr__(self):
-#         return str(self)
+def dump_string(input: str) -> str:
+    seq = TokenSeq.from_string(input)
+    return seq.dump_seq()

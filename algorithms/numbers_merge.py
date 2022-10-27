@@ -1,78 +1,91 @@
 import json
+import re
 from dataclasses import dataclass
 from typing_extensions import Self
 
 from algorithms.base import BaseLogEntry, TokenBasedAlgorithm, NewSequenceResult
-from tokens import BreakToken, ValueToken, TokenSeq, DigitToken, Sep
+from tokens import ValueToken, TokenSeq, DigitToken, Sep, Token
 
 
-class NumberToken(ValueToken):
-    pass
+class NumberToken(DigitToken):
+    from_to_pattern = re.compile(r'^([\+\-]?[0-9]+)[\-…]([\+\-]?[0-9]+)$')
+
+    def __init__(self, value: str):
+        self.old_value = value
+        if match := self.from_to_pattern.match(value):
+            _from, to = match.groups()
+            if float(_from) < float(to):
+                super().__init__(f'от {_from} до {to}')
+                return
+        super().__init__(value)
+
+    def to_original(self):
+        self.value = self.old_value
 
 
 class NumberMergeLog(BaseLogEntry):
-    sep0: list[str]
+    start: list[str]
     sep1: list[str]
-    sep2: list[str]
+    end: list[str]
 
-    def __init__(self, sep0=None, sep1=None, sep2=None):
-        self.sep0 = [] if sep0 is None else sep0
+    def __init__(self, sep0=None, sep1=None, end=None):
+        self.start = [] if sep0 is None else sep0
         self.sep1 = [] if sep1 is None else sep1
-        self.sep2 = [] if sep2 is None else sep2
+        self.end = [] if end is None else end
 
     def dump_data(self) -> str:
         return json.dumps({
-            'sep0': self.sep0,
+            'start': self.start,
             'sep1': self.sep1,
-            'sep2': self.sep2
+            'end': self.end
         }, ensure_ascii=False)
 
     @classmethod
     def load_data(cls, dump: str) -> Self:
         data = json.loads(dump)
-        return cls(data['sep0'], data['sep1'], data['sep2'])
+        return cls(data['start'], data['sep1'], data['end'])
 
     def __eq__(self, obj: 'NumberMergeLog') -> bool:
-        return self.sep0 == obj.sep0 and self.sep1 == obj.sep1 and self.sep2 == obj.sep2
+        return self.start == obj.start and self.sep1 == obj.sep1 and self.end == obj.end
 
     def __repr__(self):
-        return f'"{"".join(self.sep0)};{"".join(self.sep1)};{"".join(self.sep2)}"'
+        return f'"{"".join(self.start)};{"".join(self.sep1)};{"".join(self.end)}"'
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class NumberMergeResult(NewSequenceResult[NumberMergeLog]):
     pass
 
 
 class NumbersMerge(TokenBasedAlgorithm[NumberMergeResult]):
+    """
+    {start}{digit}({sep1}{digit})+{end}
+
+    logs:
+    - start, sep1, end
+    """
+    def end(self, token: Token):
+        return True
+
+    def sep1(self, sep):
+        return sep in set('×-,./…')
+
+    def start(self, token: Token):
+        return isinstance(token, Sep) and token.value not in {'', '-'}
+
     def parse_by_tokens(self, seq: TokenSeq) -> NumberMergeResult:
-        """
-        {sep0}{digit}({sep1}{digit})+{sep2}
-
-        logs:
-        - sep0, sep1, sep2
-        """
-        def sep2(sep):
-            return True
-
-        def sep1(sep):
-            return sep in set('×-,./')
-
-        def sep0(sep):
-            return sep not in set(['', '-'])
-
         res_log = NumberMergeLog()
         # find
         cont = False
         chunks: list[tuple[int, int]] = []
-        chank_start = None
+        chunk_start = None
 
         count_of_digits = 0
 
         g = seq.generate_with_context()
         for context, token in g:
             if cont:
-                if isinstance(token, Sep) and sep1(token.value):
+                if isinstance(token, Sep) and self.sep1(token.value):
                     res_log.sep1.append(token.value)
                     next_context, next_token = g.send(+1)
                     if isinstance(next_token, DigitToken):
@@ -81,23 +94,25 @@ class NumbersMerge(TokenBasedAlgorithm[NumberMergeResult]):
                     else:
                         res_log.sep1.pop()
 
-                if count_of_digits > 0 and (isinstance(token, BreakToken) or (isinstance(token, Sep) and (sep2(token.value) or isinstance(next_token, BreakToken)))):
-                    res_log.sep2.append(token.value)
-                    chunks.append((chank_start, context.value_index + (not isinstance(token, ValueToken))))
+                # if count_of_digits > 0 and (isinstance(token, BreakToken) or (isinstance(token, Sep) and (end(token.value) or isinstance(next_token, BreakToken)))):
+                if count_of_digits > 0 and self.end(token):
+                    res_log.end.append(token.value)
+                    chunks.append((chunk_start, context.value_index + (not isinstance(token, ValueToken))))
                     cont = False
-                    chank_start = None
+                    chunk_start = None
                 else:
-                    res_log.sep0.pop()
+                    if res_log.start:
+                        res_log.start.pop()
                     for _ in range(count_of_digits):
                         res_log.sep1.pop()
                     cont = False
-                    chank_start = None
+                    chunk_start = None
             if not cont:
-                if isinstance(token, DigitToken) and (context.token_index == 0 or (isinstance(context.prev, Sep) and sep0(context.prev.value))):
+                if isinstance(token, DigitToken) and (context.token_index == 0 or self.start(context.prev)):
                     if context.prev:
-                        res_log.sep0.append(context.prev.value)
+                        res_log.start.append(context.prev.value)
                     cont = True
-                    chank_start = context.value_index
+                    chunk_start = context.value_index
                     count_of_digits = 0
 
         # merge

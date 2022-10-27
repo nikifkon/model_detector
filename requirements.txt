@@ -4,3 +4,5 @@ click
 typing-extensions
 mysql-connector-python
 python-dotenv
+pymorphy2
+redis

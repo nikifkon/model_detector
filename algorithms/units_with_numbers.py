@@ -1,23 +1,25 @@
 from dataclasses import dataclass
+from typing import Iterable
+
 from algorithms.base import NewSequenceResult, TokenBasedAlgorithm
 from algorithms.numbers_merge import NumberToken
 from algorithms.units import Unit, UnitExpression
-from tokens import DigitToken, Token, TokenSeq, Sep
+from data.units import PROPERTY_NAMES
+from tokens import DigitToken, Token, TokenSeq, Sep, DataToken, Context
 
 
-class Property(Token):
-    pass
-
-
-class UnitProperty(Property):
-    def __init__(self, property_value: Token, unit: Unit):
+class UnitProperty(DataToken):
+    def __init__(self, property_value: Token, unit: Unit, property_name):
         self.property_value = property_value
         self.unit = unit
+        if not property_name:
+            property_name = self.unit.get_prop_name()
+        self.property_name = property_name
         self.value = f'{str(property_value)} {str(unit)}'
 
     @classmethod
-    def to_dict(self, collection: list['UnitProperty']):
-        return {prop.unit.get_prop_name(): [prop.property_value.value. prop.unit.value] for prop in collection}
+    def to_dict(cls, collection: Iterable['UnitProperty']):
+        return {prop.property_name: (prop.property_value.value, prop.unit.value) for prop in collection}
 
 
 # class UnitLog(BaseLogEntry):
@@ -29,20 +31,19 @@ class UnitProperty(Property):
 #         return cls()
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class UnitExtractorResult(NewSequenceResult):
     units: set[UnitProperty]
 
 
 class UnitExtractor(TokenBasedAlgorithm[UnitExtractorResult]):
     """
-    {number}{number_sep}{unit_exp}{end_sep}|{digit}{digit_sep}{unit_exp}{end_sep}|{expression}{expression_sep}{unit_exp}
+    {start_condition}{unit}{end_condition}
 
-    logs:
-        - value_type: (D)igit, (N)umber, (E)xpression
-        - end_sep
-        - unit
+    start_condition:
+    space + Digit
     """
+
     def __init__(self):
         pass
 
@@ -53,25 +54,66 @@ class UnitExtractor(TokenBasedAlgorithm[UnitExtractorResult]):
 
         g = token_seq.generate_with_context()
         for context, token in g:
-            if (is_digit := isinstance(token, DigitToken)) or (is_number := isinstance(token, NumberToken)):
+            if self.start_condition(context, token):
+                prop_name = None
+                if isinstance(context.prev, Sep) and self.is_property_sep(context.prev.value):
+                    prev_context, prev_token = g.send(-1)
+                    if prev_context.prev and (key := prev_context.prev.value.lower()) in PROPERTY_NAMES:
+                        prop = PROPERTY_NAMES[key]
+                        prop_name = prop["standard"]
+                        new_tokens.pop()
+                        new_tokens.pop()
+                    g.send(+1)
                 value_token = token
-                if isinstance(context.next, Sep) and (is_digit and self.is_digit_sep(context.next.value)) or (is_number and self.is_number_sep(context.next.value)):
+                if isinstance(context.next, Sep) and self.is_number_sep(context.next.value):
                     context, token = g.send(+1)
                 if isinstance(context.next, UnitExpression) or isinstance(context.next, Unit):
-                    new_tokens.pop()
-                    prop = UnitProperty(value_token, context.next)
+                    _, unit = g.send(+1)
+                    prop = UnitProperty(value_token, unit, prop_name)
                     new_tokens.append(prop)
                     res_units.add(prop)
                     continue
                 else:
                     new_tokens.append(value_token)
+                    if token != value_token:
+                        new_tokens.append(token)
                     continue
-            new_tokens.append(token)
+            else:
+                new_tokens.append(token)
         res_seq = TokenSeq(new_tokens)
-        return UnitExtractorResult(res_log, res_seq, res_units)
+        return UnitExtractorResult(res_log, self.unmerge_units(res_seq), frozenset(res_units))
+
+    def start_condition(self, context: Context, token: Token):
+        # return (context.token_index <= 0 or isinstance(context.prev, Sep) and (
+        #         ' ' in context.prev.value or '(' in context.prev.value)) and isinstance(token, DigitToken)
+        return (context.token_index <= 0 or isinstance(context.prev, Sep) and (
+                self.is_property_sep(context.prev.value) or self.is_number_start_sep(
+                    context.prev.value))) and isinstance(token, DigitToken)
 
     def is_number_sep(self, sep):
         return ')' not in sep
 
-    def is_digit_sep(self, sep):
-        return ')' not in sep
+    def is_number_start_sep(self, sep: str):
+        return ' ' in sep or '(' in sep
+
+    def is_property_sep(self, sep: str):
+        return sep.strip() in {'=', '.', '', '('}
+
+    def unmerge_units(self, seq: TokenSeq) -> TokenSeq:
+        new_tokens = []
+        for token in seq.iter_by_tokens():
+            # if isinstance(token, UnitExpression):
+            #     tokens = token.old_seq.iter_by_tokens()
+            # else:
+            #     tokens = [token]
+            # for sub_token in [token]:
+            if isinstance(token, NumberToken):
+                token.to_original()
+                new_tokens.append(token)
+                # new_tokens.extend([token for token in TokenSeq.from_string(token.old_value).iter_by_tokens() if
+                #                    not isinstance(token, BreakToken)])
+            elif isinstance(token, Unit):
+                new_tokens.extend(token.to_original())
+            else:
+                new_tokens.append(token)
+        return TokenSeq(new_tokens)

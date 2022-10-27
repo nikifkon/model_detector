@@ -10,6 +10,7 @@ from algorithms.units import Unit, UnitMerge, UnitExpression
     ('Камера холодильная толщина 100 мм 4100х5600х2240 мм 42,96 м3 POLAIR', ['мм', 'мм', 'м^3']),
     ('(125кг на полку) ', ['кг', 'на']),
     ('Пилорама ленточная Алтай-3 (900) с бензиновым двигателем Lifan 15л.с.', ['л/с']),
+    ('123 г2', []),
 ])
 def test_simple_merge(input, values):
     um = UnitMerge()
@@ -31,8 +32,9 @@ def test_unit_prefixes_suffixes(unit, values, string):
 
 
 @pytest.mark.parametrize('unit_exp, value', [
-    (UnitExpression(TokenSeq([Unit('л'), Sep('/'), Unit('с')])), 'л/с'),
-    (UnitExpression(TokenSeq([Unit('л'), Sep('.'), Unit('с'), Sep('.')])), 'л/с')
+    (UnitExpression.from_seq(TokenSeq([Unit('л'), Sep('/'), Unit('с')])), 'л/с'),
+    (UnitExpression.from_seq(TokenSeq([Unit('л'), Sep('.'), Unit('с'), Sep('.')])), 'л/с'),
+    (UnitExpression.from_seq(TokenSeq([Unit('м^3'), Sep('/'), Unit('ч')])), 'м^3/ч')
 ])
 def test_unit_expression(unit_exp, value):
     assert unit_exp.value == value

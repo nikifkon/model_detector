@@ -1,23 +1,109 @@
-from functools import partial
+import logging
 import os
-from typing import Iterator, Callable, NamedTuple
+from typing import Generator, NamedTuple, Optional, Iterable
 
+import redis
 from mysql import connector
 
 from connectors.base import BaseConnector
-from connectors.models import ManufacturerModel, ModelModel
+from connectors.models import ManufacturerModel, ModelModel, SeriesModel, ManufacturerStatus, MANUFACTURER_PREFIX, SERIES_PREFIX, SeriesStatus
+from tokens import TokenSeq, dump_string
+
+
+logging.basicConfig(level=0)
 
 
 def join_update_params(data: dict) -> str:
-    return "\n".join([f"{key} = %s," for key in data.keys()])
+    return ",\n".join([f"{key} = %s" for key in data.keys()])
 
 
 class ProductionConnector(BaseConnector):
-    tables = {
-        'promyshlennoe_oborudovanie_pulscen': 'P',
-        'promyshlennoe_oborudovanie_satom': 'S',
-        'promyshlennoe_oborudovanie_avitoOld': 'A'
-    }
+    def __init__(self, force_fetch=False):
+        self.data_tables = {
+            'promyshlennoe_oborudovanie_pulscen': 'P',
+            # 'promyshlennoe_oborudovanie_satom': 'S',
+            # 'promyshlennoe_oborudovanie_avito': 'A'
+        }
+        self.r = redis.Redis()
+        if force_fetch:
+            with self.r.pipeline() as pipe:
+                with self.connect() as connection:
+                    cur = connection.cursor()
+                    self._clear_redis(pipe)
+                    self._manufacturers_to_redis(pipe, cur)
+                    self._series_to_redis(pipe, cur)
+                    self._models_to_redis(pipe, cur)
+                pipe.execute()
+        super().__init__()
+
+    def _clear_redis(self, pipe: redis.client.Pipeline):
+        logging.debug("FLUSHDB...")
+        pipe.flushdb()
+        pipe.execute()
+        logging.debug("FLUSHDB FINISHED")
+
+    def _manufacturers_to_redis(self, pipe: redis.client.Pipeline, cursor):
+        table = 'manufacturers_list'
+        logging.debug(f'Collecting manufacturers from {table}...')
+
+        wait_for_master = {}  # master_id -> slave_key
+        for row_id, manufacturer, synonym_to, status in self.read(
+                cursor,
+                table=table,
+                columns=('id', 'manufacturer', 'synonym_to', 'status'),
+                where=f'WHERE status = "{ManufacturerStatus.VERIFIED.value}"',
+                order='ORDER BY synonym_to DESC'):
+            key = MANUFACTURER_PREFIX + dump_string(manufacturer)
+            pipe.hset(key, mapping={
+                "id": row_id,
+                "normal_form": manufacturer,
+                "status": ManufacturerStatus.VERIFIED.value
+            })
+            if synonym_to:
+                wait_for_master[synonym_to] = key
+            if row_id in wait_for_master:
+                pipe.hset(wait_for_master[row_id], mapping={
+                    "synonym_to": key
+                })
+        logging.debug(f'Collecting manufacturers from {table} FINISHED')
+
+    def _series_to_redis(self, pipe: redis.client.Pipeline, cursor):
+        table = 'series_list'
+        logging.debug(f'Collecting series from {table}...')
+        searched_manufacturers = {}  # manufacturer_id to series_keys
+        for row_id, series, manufacturer, status in self.read(
+                cursor,
+                table=table,
+                columns=('id', 'series', 'manufacturer', 'status'),
+                where=f'WHERE status = "{ManufacturerStatus.VERIFIED.value}"'):
+            key = SERIES_PREFIX + dump_string(series)
+            pipe.hset(key, mapping={
+                "id": row_id,
+                "normal_form": series,
+                "status": ManufacturerStatus.VERIFIED.value
+            })
+            if manufacturer:
+                if manufacturer not in searched_manufacturers:
+                    searched_manufacturers[manufacturer] = []
+                searched_manufacturers[manufacturer].append(key)
+
+        for row_id, manufacturer in self.read(
+                cursor,
+                table='manufacturers_list',
+                columns=('id', 'manufacturer')):
+            if row_id in searched_manufacturers:
+                for series_key in searched_manufacturers[row_id]:
+                    pipe.hset(series_key, mapping={
+                        'manufacturer': dump_string(manufacturer)
+                    })
+                searched_manufacturers.pop(row_id)
+        logging.debug(f'{len(searched_manufacturers.keys())} manuf not found')
+
+        logging.debug(f'Collecting series from {table} FINISHED')
+        # TODO manufacturer
+
+    def _models_to_redis(self, pipe: redis.client.Pipeline, cursor):
+        pass  # db not exists
 
     def connect(self):
         from dotenv import load_dotenv
@@ -27,11 +113,10 @@ class ProductionConnector(BaseConnector):
             port=os.environ.get('MYSQL_PORT'),
             user=os.environ.get('MYSQL_USER'),
             password=os.environ.get('MYSQL_PASSWORD'),
-            database='equip'
+            database=os.environ.get('MYSQL_DATABASE')
         )
 
-    def update(self, cursor, id: str, data: dict):
-        id, table = self.decode_table(id)
+    def update(self, cursor, table: str, id: int, data: dict):
         query = f"""
 UPDATE {table}
 SET
@@ -40,59 +125,68 @@ WHERE id = %s
         """
         cursor.execute(query, (*data.values(), id))
 
-    def read_and_update(self, columns: tuple[str], where: str = '', limit=18446744073709551615) -> Iterator[tuple[NamedTuple, Callable[[int, dict], None]]]:
+    def read(self, cursor, table, columns: Iterable[str], where: str = '', limit=18446744073709551615, order: str = '', offset=0):
         assert 'id' in columns
-        offset = 0
+        offset = offset
+        cursor.execute(f"""
+SELECT {",".join(columns)}
+FROM {table}
+{where}
+{order}
+LIMIT {limit}
+OFFSET {offset};
+        """)
+        while row := cursor.fetchone():
+            yield row
+
+    def read_and_update_data_tables(self, columns: Iterable[str], where: str = '', limit=18446744073709551615, offset=0) -> \
+            Generator[NamedTuple, dict, None]:
         with self.connect() as connection:
             cur = connection.cursor()
 
-            counter = 0
-            for table, prefix in self.tables.items():
-                cur.execute(f"""
-SELECT {",".join(columns)}
-FROM equip.{table}
-{where if where else ""}
-LIMIT {limit}
-OFFSET {offset};
-                """)
-                while row := cur.fetchone():
+            for table, prefix in self.data_tables.items():
+                for row in self.read(cur, table, columns, where, limit, offset=offset):
                     (id, *other) = row
-                    counter += 1
-                    if counter % 50_000 == 0:
-                        print(counter)
-                    yield (self.encode_table(id, table), *other), partial(self.update(cur))
+                    data = yield other
+                    if data:
+                        self.update(cur, table, id, data)
+                        yield
             connection.commit()
 
     def encode_table(self, id: int, table: str) -> str:
-        return f'{self.tables[table]}{id}'
+        return f'{self.data_tables[table]}{id}'
 
     def decode_table(self, id: str) -> tuple[int, str]:
-        return int(id[1:]), list(self.tables.keys())[list(self.tables.values()).index(id[0])]
+        return int(id[1:]), list(self.data_tables.keys())[list(self.data_tables.values()).index(id[0])]
 
-    def read(self, columns: tuple[str], where: str = '', limit=18446744073709551615) -> NamedTuple:
-        assert 'id' in columns
-        offset = 0
-        with self.connect() as connection:
-            cur = connection.cursor()
+    def check_manufacturer_existence(self, suspect: TokenSeq) -> Optional[ManufacturerModel]:
+        key = MANUFACTURER_PREFIX + suspect.dump_seq()
+        return self._get_manufacturer(key)
 
-            counter = 0
-            for table, prefix in self.tables.items():
-                cur.execute(f"""
-SELECT {",".join(columns)}
-FROM equip.{table}
-{where if where else ""}
-LIMIT {limit}
-OFFSET {offset};
-                """)
-                while row := cur.fetchone():
-                    (id, *other) = row
-                    counter += 1
-                    if counter % 50_000 == 0:
-                        print(counter)
-                    yield self.encode_table(id, table), *other
+    def _get_manufacturer(self, key: str) -> Optional[ManufacturerModel]:
+        if self.r.exists(key):
+            bin_data = self.r.hgetall(key)
+            data = {
+                'normal_form': bin_data[b'normal_form'].decode('utf-8'),
+                'status': ManufacturerStatus(bin_data[b'status'].decode('utf-8'))
+            }
+            return ManufacturerModel(**data)
 
-    def check_manufacturer_existence(self, manufacturer: str) -> tuple[bool, ManufacturerModel]:
-        return super().check_manufacturer_existence(manufacturer)
+    def check_model_existence(self, suspect: TokenSeq) -> Optional[ModelModel]:
+        pass  # TODO
 
-    def check_model_existence(self, model: str, essence: str = None, manufacturer: str = None) -> tuple[bool, ModelModel]:
-        return super().check_model_existence(model, essence, manufacturer)
+    def check_series_existence(self, suspect: TokenSeq) -> Optional[SeriesModel]:
+        key = SERIES_PREFIX + suspect.dump_seq()
+        if self.r.exists(key):
+            bin_data = self.r.hgetall(key)
+            manufacturer_key = MANUFACTURER_PREFIX + bin_data[b'manufacturer'].decode('utf-8')
+
+            data = {
+                'normal_form': bin_data[b'normal_form'].decode('utf-8'),
+                'status': SeriesStatus(bin_data[b'status'].decode('utf-8')),
+                'manufacturer': self._get_manufacturer(manufacturer_key)
+            }
+            return SeriesModel(**data)
+
+    def check_is_essence_banned(self, essence: TokenSeq) -> bool:
+        return False

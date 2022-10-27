@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
 
 
 class ManufacturerStatus(Enum):
@@ -9,7 +10,7 @@ class ManufacturerStatus(Enum):
     MANUAL = "MANUAL"
     BY_STATISTIC = "BY_STATISTIC"
     BANNED = "BANNED"
-    MULTY = "MULTY"
+    # MULTY = "MULTY"
 
 
 class ManufacturerMethod(Enum):
@@ -19,39 +20,43 @@ class ManufacturerMethod(Enum):
     BY_NAME_DRY = "BY_NAME_DRY"
     BY_ANALOGY = "BY_ANALOGY"
     BY_VERIFIED_MODEL = "BY_VERIFIED_MODEL"
-
-# производитель из данных
-#   не забанен -> FROM_DATA, X (может быть новый)
-#   забанен -> continue
-# нашли в загаловке 1го незабаннего производителя
-#   BY_NAME, X
-# нашли 2 незабанненых производителей (причем не синонимов)
-#   может 2й это серия?
-#       BY_NAME, X
-#   manuf=MULTI
-# иначе
-#   ищем серии
-#       если у серии только один производитель
-#           BY_SERIES, X
-#       несколько
-#           ТУДУ
-#   иначе находим по аналогии среди одинаковый essence
-#       BY_ANALOGY, X
-#   иначе
-#   MISSED, MISSED
+    MULTY = "MULTY"
+    MISSED = "MISSED"
 
 
-@dataclass
+class SeriesStatus(Enum):
+    VERIFIED = "VERIFIED"
+    BY_STATISTIC = "BY_STATISTIC"
+    BANNED = "BANNED"
+
+
+@dataclass(eq=True, frozen=True)
 class ManufacturerModel:
     normal_form: str
     status: ManufacturerStatus
-    # original_manufacturer: 'ManufacturerModel' = None
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class ModelModel:
     normal_form: str
-    manufacturer: 'ManufacturerModel' = None
-    essence: str = None
-    series: str = None
-    # original_model: 'ModelModel' = None
+    manufacturer: Optional['ManufacturerModel'] = None
+    essence: Optional[str] = None
+    series: Optional['SeriesModel'] = None
+
+    @property
+    def normal_form_with_series(self):
+        if self.series:
+            return self.series.normal_form + ' ' + self.normal_form
+        return self.normal_form
+
+
+@dataclass(eq=True, frozen=True)
+class SeriesModel:
+    normal_form: str
+    status: SeriesStatus
+    manufacturer: Optional['ManufacturerModel'] = None
+
+
+MODEL_PREFIX = 'model:'
+MANUFACTURER_PREFIX = 'manufacturer:'
+SERIES_PREFIX = 'series:'
