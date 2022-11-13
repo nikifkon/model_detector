@@ -27,8 +27,8 @@ class FindModels(TokenBasedAlgorithm[FindModelsResult]):
                 if model := self.is_model_exists(ngram):
                     res.append((ngram, model))
         if len(res) == 0:
-            return FindModelsResult(None, None)
+            return FindModelsResult(None)
         if len(res) == 1:
-            return FindModelsResult(None, res[0][1])
+            return FindModelsResult(res[0][1])
         assert False, (token_seq, res)
         # TODO условия на то что подстрока хорошая

@@ -6,11 +6,23 @@ from tokens import Token, CyrillicToken, Context, Sep
 
 dictionary = {
     'зиговочный',
-
     'клеенанесения',
     'клеенанесение',
-
     'трехфазный',
+    'металлорукав',
+    'погружный',
+    'электронасосный',
+    'кромкооблицовочный',
+    'тефлоновая',
+    'токопроводный',
+    'рутилово',
+    'целлюлозный',
+    'пропановый',
+    'полугерметичный',
+    'тэновый',
+    'рефрежираторный',
+
+
 }.union(essences)
 
 morph = pymorphy2.MorphAnalyzer()
@@ -29,7 +41,7 @@ def is_token_in_cyrillic_dictionary(context: Context, token: Token):
 
 def is_word_in_cyrillic_dictionary(word: str):
     w = morph.parse(word)[0]
-    if w.normal_form in dictionary:
+    if w.normal_form.lower() in dictionary or word.lower() in dictionary:
         return True
     if not w.is_known:
         return False

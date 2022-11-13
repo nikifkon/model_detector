@@ -27,13 +27,11 @@ class FindSeries(TokenBasedAlgorithm[FindSeriesResult]):
                 if series := self.is_series_exists(ngram):
                     res.append(((start, end), series))
         if len(res) == 0:
-            return FindSeriesResult(None, seq=token_seq, series=None)
+            return FindSeriesResult(seq=token_seq, series=None)
         if len(res) == 1:
-            return FindSeriesResult(None,
-                                    seq=token_seq.merge([res[0][0]], lambda x: SereisToken(res[0][1])),
+            return FindSeriesResult(seq=token_seq.merge([res[0][0]], lambda x: SereisToken(res[0][1])),
                                     series=res[0][1])
         print(token_seq)
-        return FindSeriesResult(None,
-                                seq=token_seq.merge([res[0][0]], lambda x: SereisToken(res[0][1])),
+        return FindSeriesResult(seq=token_seq.merge([res[0][0]], lambda x: SereisToken(res[0][1])),
                                 series=res[0][1])
         # TODO условия на то что подстрока хорошая

@@ -28,6 +28,11 @@ class FindManufacturers(TokenBasedAlgorithm[FindManufacturersResult]):
                 manufacturers_to_chunks[manuf] = []
             manufacturers_to_chunks[manuf].append((start, end))
 
+        # filter substring
+        for key in list(manufacturers_to_chunks.keys()):
+            if any(key.normal_form.lower() in x.normal_form.lower() for x in manufacturers_to_chunks.keys() if x != key):
+                manufacturers_to_chunks.pop(key)
+
         new_seq = token_seq
         manufacturers = list(manufacturers_to_chunks.keys())
         manufacturer = None
@@ -36,14 +41,15 @@ class FindManufacturers(TokenBasedAlgorithm[FindManufacturersResult]):
         series = series_res.series
 
         if len(manufacturers) == 2 and series:
-            match_manufacturers = [manuf for manuf in manufacturers if manuf == series.manufacturer]
-            if len(match_manufacturers) == 1:
-                manufacturers = [match_manufacturers[0]]
+            matched_manufacturers = set(manufacturers) & set(series.manufacturers)
+
+            if len(matched_manufacturers) == 1:
+                manufacturers = [matched_manufacturers[0]]
         if len(manufacturers) >= 2:
             method = ManufacturerMethod.MULTY
             pass
         if len(manufacturers) == 1:
-            if series and series.manufacturer != manufacturers[0]:
+            if series and manufacturers[0] not in series.manufacturers:
                 # TODO conflict
                 print(str(token_seq))
                 pass
@@ -55,16 +61,15 @@ class FindManufacturers(TokenBasedAlgorithm[FindManufacturersResult]):
             series_res = FindSeries(self.is_series_exists).parse_by_tokens(new_seq)
             new_seq = series_res.seq
         if len(manufacturers) == 0:
-            if series:
+            if series and len(series.manufacturers) == 1:
                 method = ManufacturerMethod.BY_SERIES
-                manufacturers = [series.manufacturer]
+                manufacturers = [series.manufacturers[0]]
                 new_seq = series_res.seq
             else:
                 method = ManufacturerMethod.MISSED
                 pass
 
         return FindManufacturersResult(
-            logs=None,
             seq=new_seq,
             manufacturers=frozenset(manufacturers),
             method=method,

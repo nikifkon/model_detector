@@ -10,6 +10,7 @@ class ManufacturerStatus(Enum):
     MANUAL = "MANUAL"
     BY_STATISTIC = "BY_STATISTIC"
     BANNED = "BANNED"
+    MISSED = "MISSED"
     # MULTY = "MULTY"
 
 
@@ -54,7 +55,7 @@ class ModelModel:
 class SeriesModel:
     normal_form: str
     status: SeriesStatus
-    manufacturer: Optional['ManufacturerModel'] = None
+    manufacturers: list['ManufacturerModel']
 
 
 MODEL_PREFIX = 'model:'

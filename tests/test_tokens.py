@@ -1,5 +1,6 @@
 import pytest
 
+from algorithms.defaults import DefaultAlgorithm
 from tokens import AsciiToken, TokenSeq
 
 
@@ -49,6 +50,8 @@ def test_multy_merge():
     ('1 2 3 4 5', 3, 5, '4 5'),
     ('1 2 3 4 5', 3, 5, '4 5'),
     ('1 2 3 4/5', 3, 5, '4/5'),
+    ('1 2 3 4/5', 2, 4, '3 4'),  # controversial behavior
+    ('1 2 3 4a', 2, 4, '3 4'),  # controversial behavior
 ])
 def test_get_subseq(input_string: str, start: int, end: int, expected_string: str):
     seq = TokenSeq.from_string(input_string)
@@ -60,18 +63,20 @@ def test_get_subseq(input_string: str, start: int, end: int, expected_string: st
     ('1 2 3 4 5', 1, ['1', '2', '3', '4', '5']),
     ('1 2 3 4 5', 2, ['1 2', '2 3', '3 4', '4 5']),
     ('1 2 3 4 5', 3, ['1 2 3', '2 3 4', '3 4 5']),
-    ('1 2 3;4 5;', 3, ['1 2 3', '2 3;4', '3;4 5']),
+    ('1 2 3-4 5;', 3, ['1 2 3-4', '2 3-4 5']),
+    ('1 2 3TEST 5;', 3, ['1 2 3TEST', '2 3TEST 5']),
 ])
 def test_iter_ngrams_simple(input_string, n, expected_strings):
-    seq = TokenSeq.from_string(input_string)
+    seq = DefaultAlgorithm().parse(input_string).seq
     assert list(map(lambda res: str(res[0]), seq.iter_ngrams_by_values(n))) == expected_strings
 
 
 @pytest.mark.parametrize('input_string, expected_strings, predicate', [
     ('1 2 3 4 5', ['2 3'], lambda seq: seq.tokens[0].value == '2' and len(list(seq.iter_by_values())) <= 2),
+    ('1 2 3-4 5', ['2 3-4'], lambda seq: seq.tokens[0].value == '2' and len(list(seq.iter_by_values())) <= 2),
 ])
 def test_select_longest_ngrams_match(input_string, expected_strings, predicate):
-    seq = TokenSeq.from_string(input_string)
+    seq = DefaultAlgorithm().parse(input_string).seq
     assert list(map(lambda res: str(res[0]), seq.select_longest_ngrams_match(predicate))) == expected_strings
 
 
@@ -83,3 +88,11 @@ def test_select_longest_ngrams_match(input_string, expected_strings, predicate):
 def test_trim(input_string, expected_strings):
     seq = TokenSeq.from_string(input_string)
     assert str(seq.trim()) == expected_strings
+
+
+@pytest.mark.parametrize('seq, expected_strings', [
+    (TokenSeq.from_string('1 2 3 4 5'), '1;2;3;4;5'),
+    (TokenSeq([AsciiToken('a-b')]), 'a;b'),
+])
+def test_dump_seq(seq, expected_strings):
+    assert seq.dump_seq() == expected_strings

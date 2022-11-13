@@ -15,7 +15,7 @@ class BaseConnector(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def read_and_update_data_tables(self, columns: tuple[str], where: str) -> Generator[NamedTuple, dict, None]:
+    def read_and_update_data_tables(self, columns: Iterable[str], where: str = '', limit=18446744073709551615, offset=0) -> Generator[NamedTuple, dict, None]:
         pass
 
     @abstractmethod

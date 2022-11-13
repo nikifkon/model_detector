@@ -18,22 +18,13 @@ class UnitProperty(DataToken):
         self.value = f'{str(property_value)} {str(unit)}'
 
     @classmethod
-    def to_dict(cls, collection: Iterable['UnitProperty']):
+    def to_dict(cls, collection: Iterable['UnitProperty']) -> dict[str, tuple[str, str]]:
         return {prop.property_name: (prop.property_value.value, prop.unit.value) for prop in collection}
-
-
-# class UnitLog(BaseLogEntry):
-#     def dump_data(self) -> str:
-#         return {}
-
-#     @classmethod
-#     def load_data(cls, dump: str) -> Self:
-#         return cls()
 
 
 @dataclass(eq=True, frozen=True)
 class UnitExtractorResult(NewSequenceResult):
-    units: set[UnitProperty]
+    units: frozenset[UnitProperty]
 
 
 class UnitExtractor(TokenBasedAlgorithm[UnitExtractorResult]):
@@ -48,7 +39,6 @@ class UnitExtractor(TokenBasedAlgorithm[UnitExtractorResult]):
         pass
 
     def parse_by_tokens(self, token_seq: TokenSeq) -> UnitExtractorResult:
-        res_log = None
         new_tokens = []
         res_units = set()
 
@@ -81,11 +71,9 @@ class UnitExtractor(TokenBasedAlgorithm[UnitExtractorResult]):
             else:
                 new_tokens.append(token)
         res_seq = TokenSeq(new_tokens)
-        return UnitExtractorResult(res_log, self.unmerge_units(res_seq), frozenset(res_units))
+        return UnitExtractorResult(self.unmerge_units(res_seq), frozenset(res_units))
 
     def start_condition(self, context: Context, token: Token):
-        # return (context.token_index <= 0 or isinstance(context.prev, Sep) and (
-        #         ' ' in context.prev.value or '(' in context.prev.value)) and isinstance(token, DigitToken)
         return (context.token_index <= 0 or isinstance(context.prev, Sep) and (
                 self.is_property_sep(context.prev.value) or self.is_number_start_sep(
                     context.prev.value))) and isinstance(token, DigitToken)

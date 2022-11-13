@@ -77,7 +77,7 @@ class TokenSeq:
 
     @classmethod
     def from_string(self, input: str):
-        cur = StringIO()
+        cur: list[str] = []
         prev_type = None
         tokens: list[Token] = []
 
@@ -94,13 +94,13 @@ class TokenSeq:
                 cur_type = Sep
 
             if i == 0 or prev_type == cur_type:
-                cur.write(c)
+                cur.append(c)
             else:
-                value = cur.getvalue()
+                value = ''.join(cur)
                 new_token = prev_type(value)
                 tokens.append(new_token)
-                cur = StringIO()
-                cur.write(c)
+                cur.clear()
+                cur.append(c)
             prev_type = cur_type
 
         tokens.append(BreakToken())
@@ -199,7 +199,7 @@ class TokenSeq:
                 return TokenSeq(res)
 
     def dump_seq(self):
-        return ';'.join(map(lambda x: str(x).lower(), self.iter_by_values()))
+        return ';'.join(map(lambda x: str(x).lower(), TokenSeq.from_string(str(self)).iter_by_values()))
 
     def trim(self):
         tks = list(self.iter_by_tokens())

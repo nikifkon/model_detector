@@ -57,7 +57,6 @@ class ModelDetector(TokenBasedAlgorithm[ModelDetectorResult]):
                     score = 0
                     continue
                 res.append(ModelDetectorResult(
-                    None,
                     token_seq.merge([(chunk_start, chunk_end)], lambda seq: ModelToken(str(seq.trim()))),
                     ModelToken(str(token_seq.get_sub(chunk_start, chunk_end).trim())),
                     score=score
@@ -70,7 +69,7 @@ class ModelSelector(BaseSelector[ModelDetectorResult]):
     def select(self, results: list[ModelDetectorResult]) -> ModelDetectorResult:
         # TODO banned
         if not results:
-            return ModelDetectorResult(None, None, None, 0)
+            return ModelDetectorResult(None, None, 0)
         return max(results, key=lambda result: self.score_model(result.model, results.index(result)))
 
     def score_model(self, model: ModelToken, index: int):

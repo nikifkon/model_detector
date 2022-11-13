@@ -1,6 +1,7 @@
 import pytest
 
 from algorithms.defaults import DefaultAlgorithm
+from algorithms.detect_product_name import ProductNameFinder
 from tokens import TokenSeq
 from algorithms.detect_model import ModelDetector
 from algorithms.find_manufacturer import ManufacturerToken
@@ -16,11 +17,13 @@ from algorithms.find_manufacturer import ManufacturerToken
     ('Проволока сварочная 6 мм, св08г2с, ГОСТ 2246-70', 'св08г2с'),
     ('Электроды ЦН-12М 4.5 мм', 'ЦН-12М'),
     ('Проволока титановая сварочная ОТ4-1св 6 мм ГОСТ 27265-87', 'ОТ4-1св'),
+    ('Прилавок-витрина холодильный ПВВН-70КМ-С-01-НШ кашир. плоский стол', 'ПВВН-70КМ-С-01-НШ'),
 ])
-def test_without_manuf__simple(input: str, model: str):
+def test_without_manuf__simple(connector, input: str, model: str):
     seq = DefaultAlgorithm().parse(input).seq
+    seq_with_product_name = ProductNameFinder(connector.check_is_essence_banned).parse_by_tokens(seq).seq
 
-    res = ModelDetector(lambda x: False).parse_by_tokens(seq)
+    res = ModelDetector(lambda x: False).parse_by_tokens(seq_with_product_name)
     if model is None:
         assert res.model is None
         return
@@ -37,6 +40,7 @@ def test_without_manuf__simple(input: str, model: str):
     ('Ленточная пилорама Тайга Т4', 'Тайга', 'Т4'),
     ('Компрессор FUBAG SMART AIR, + 6 предметов', 'FUBAG', 'SMART AIR'),
     ('Льдогенератор чешуйчатого льда GASTRORAG DB ЕС65', 'GASTRORAG', 'DB ЕС65'),  # get last phrase
+    ('Генератор сварочный Fubag WHS 210 DC', 'Fubag', 'WHS 210 DC'),
 
 ])
 def test_with_manuf__simple(input: str, manuf: str, model: str):

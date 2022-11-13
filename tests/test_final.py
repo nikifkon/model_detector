@@ -15,11 +15,9 @@ MM = ModelModel
 FM = ManufacturerModel
 
 
-def run_test(connector, input, model_model, method):
+def run_test(connector, input: str, model_model: ModelModel, method: hod):
     res = Final(connector).parse(input)
     assert res.model_model == model_model
-    # assert res.model.essence == model_model.essence
-    # assert res.model.manufacturer == model_model.manufacturer
     assert res.method == method
 
 
@@ -42,7 +40,6 @@ def test_by_name_clear__simple(connector, input: str, model_model: MM, method: M
     run_test(connector, input, model_model, method)
 
 
-# TODO test data
 @pytest.mark.parametrize('input, model_model, method', [
     ('Циркуляционный насос Wilo Yonos PICO 25/1-6-130 4164018',
      MM('Yonos PICO 25/1-6-130', manufacturer=FM('Wilo', FS.VERIFIED), essence='Насос'), hod.BY_NAME_CLEAR),
@@ -72,6 +69,7 @@ def test_by_name__manuf_synonym(connector, input: str, model_model: MM, method: 
     run_test(connector, input, model_model, method)
 
 
+# Failed cuz we use production connector and production database may haven't verified model
 @pytest.mark.parametrize('input, model_model, method', [
     ('Поршневой компрессор Fiac AB 500 - 858/16',
      MM('Fiac AB 500 - 858', essence='Компрессор'), None),
@@ -83,6 +81,7 @@ def test_by_name__model_synonym(connector, input: str, model_model: MM, method: 
     run_test(connector, input, model_model, method)
 
 
+# Failed cuz we use production connector and production database may haven't verified model
 @pytest.mark.parametrize('input, model_model, method', [
     ('Подшипник ступицы 4030042SX',
      MM('4030042SX', manufacturer=FM('Stellox', FS.VERIFIED), essence='Подшипник'), hod.BY_ANALOGY),
@@ -99,6 +98,7 @@ def test_multy(connector, input: str, model_model: MM, method: ManufacturerMetho
     run_test(connector, input, model_model, method)
 
 
+# Failed cuz we use production connector and production database may haven't verified model
 @pytest.mark.parametrize('input', [
     'Fiac AB 500-858',
     'Fiac;AB 500 858',
@@ -111,21 +111,21 @@ def test_find_model(connector, input: str):
     assert res.model == MM('Fiac AB 500-858', essence='компрессор')
 
 
-# def test_by_verified_model(connector):
-#     run_test(connector, 'a asdfj adslkfj as Fiac AB 500 858 фывло', MM('Fiac AB 500-858', essence='компрессор'), hod.BY_VERIFIED_MODEL)
-
-
 @pytest.mark.parametrize('input, expected_res', {
     ('Парогенератор Tefal Pro Express Protect GV9230E0',
-     FindManufacturersResult(None, None, frozenset([FM('Tefal', FS.VERIFIED)]), hod.BY_NAME_CLEAR)),
+     FindManufacturersResult(None, frozenset([FM('Tefal', FS.VERIFIED)]), hod.BY_NAME_CLEAR)),
     ('Сварочный полуавтомат TSS top MIG/MMA-160 DG',
-     FindManufacturersResult(None, None, frozenset([FM('TSS', FS.VERIFIED)]), hod.BY_NAME_CLEAR)),
-    ('Ленточная пилорама Тайга Астрон Алтай Кедр в налич', FindManufacturersResult(None, None, frozenset(
+     FindManufacturersResult(None, frozenset([FM('TSS', FS.VERIFIED)]), hod.BY_NAME_CLEAR)),
+    ('Ленточная пилорама Тайга Астрон Алтай Кедр в налич', FindManufacturersResult(None, frozenset(
         [FM('Тайга', FS.VERIFIED), FM('Кедр', FS.VERIFIED), FM('Астрон', FS.VERIFIED), FM('Алтай', FS.VERIFIED)]), hod.MULTY)),
     ('Дренажный насос ГНОМ 16-16 Д 220В (Ливны, с поплавком)',
-     FindManufacturersResult(None, None, frozenset([manuf := FM('Ливгидромаш', FS.VERIFIED)]), hod.BY_SERIES, SeriesModel('Гном', manufacturer=manuf, status=SeriesStatus.VERIFIED))),
+     FindManufacturersResult(None, frozenset([manuf := FM('Ливгидромаш', FS.VERIFIED)]), hod.BY_SERIES, SeriesModel('Гном', manufacturer=manuf, status=SeriesStatus.VERIFIED))),
     ('Wilo Tefal-100',
-     FindManufacturersResult(None, None, frozenset([manuf := FM('Wilo', FS.VERIFIED)]), hod.BY_NAME_CLEAR)),
+     FindManufacturersResult(None, frozenset([manuf := FM('Wilo', FS.VERIFIED)]), hod.BY_NAME_CLEAR)),
+    ('Горелка ABICOR BINZEL ABITIG GRIP 17 F, 8 м',
+     FindManufacturersResult(None, frozenset([manuf := FM('Abicor Binzel', FS.VERIFIED)]), hod.BY_NAME_CLEAR)),
+    ('Электрический резьбонарезной станок SUPER-EGO HEAVY 2"',
+     FindManufacturersResult(None, frozenset([manuf := FM('Super-Ego', FS.VERIFIED)]), hod.BY_NAME_CLEAR)),
 })
 def test_find_manufacturer(connector, input: str, expected_res: FindManufacturersResult):
     fm = FindManufacturers(connector.check_manufacturer_existence, connector.check_series_existence)

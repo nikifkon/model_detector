@@ -4,13 +4,14 @@ from algorithms.merge_soft import MergeSoft
 from algorithms.numbers_merge import NumbersMerge
 from algorithms.units import UnitMerge
 from algorithms.units_with_numbers import UnitExtractor, UnitProperty
+from algorithms.x_replace import XReplace
 from tokens import Sep, BreakToken, CyrillicToken, TokenSeq
 
 
 def run_test(input: str, values: tuple):
-    with_numbers = NumbersMerge().parse(input).seq
-    with_merged = MergeSoft().parse_by_tokens(with_numbers).seq
-    with_units = UnitMerge().parse_by_tokens(with_merged).seq
+    with_x = XReplace().parse(input).seq
+    with_numbers = NumbersMerge().parse_by_tokens(with_x).seq
+    with_units = UnitMerge().parse_by_tokens(with_numbers).seq
     res = UnitExtractor().parse_by_tokens(with_units)
     assert frozenset(map(lambda x: (x.property_value.value, x.unit.value), res.units)) == values
 
@@ -23,10 +24,12 @@ def run_test(input: str, values: tuple):
     ('Comprag DACS 10S', 'Comprag DACS 10S'),
     ('(на полку)', '(на полку)'),
     ('Компрессор Fest КМ 1800/50', 'Компрессор Fest КМ 1800/50'),
-    ('Grundfos Hydro Multi-S/G 3 CM 50Hz', 'Grundfos Hydro Multi-S/G 3 CM 50 гц'),  # TODO см vs cm
+    ('Grundfos Hydro Multi-S/G 3 CM 50Hz', 'Grundfos Hydro Multi-S/G 3 CM 50 гц'),
+    ('Насос консольный Grundfos NK 100-200/181 2900 об/мин', 'Насос консольный Grundfos NK 100-200/181 2900 об/мин'),
 ])
 def test_seq_with_units(input: str, output: str):
-    with_numbers = NumbersMerge().parse(input).seq
+    with_x = XReplace().parse(input).seq
+    with_numbers = NumbersMerge().parse_by_tokens(with_x).seq
     with_units = UnitMerge().parse_by_tokens(with_numbers).seq
     ue = UnitExtractor().parse_by_tokens(with_units)
     assert str(ue.seq) == output
@@ -77,11 +80,11 @@ def test_no_unit_tokens_if_no_numbers(input: str, seq: TokenSeq):
 
 
 @pytest.mark.parametrize('input, values', [
-    # ('Силиконовая резина 1,0мм х 1000мм', frozenset([('1×1000', 'мм')])),
-    # ("Соединитель для шлангов от 10мм до 20мм", frozenset([('от 10 до 20', 'мм')])),
-    # ('Витрина холодильная настольная ВХН-70-01, +5…+15 С', frozenset([('от +5 до +15', 'с')])),
-    # ('Компрессор для пружин, 110-180мм / 400 мм KRAFTOOL', frozenset([('от 110 до 180', 'мм'), ('400', 'мм')])),
-    # ('Холодильный шкаф Капри П-390С', frozenset()),
+    ('Силиконовая резина 1,0мм х 1000мм', frozenset([('1×1000', 'мм')])),
+    ("Соединитель для шлангов от 10мм до 20мм", frozenset([('от 10 до 20', 'мм')])),
+    ('Витрина холодильная настольная ВХН-70-01, +5…+15 С', frozenset([('от +5 до +15', 'с')])),
+    ('Компрессор для пружин, 110-180мм / 400 мм KRAFTOOL', frozenset([('от 110 до 180', 'мм'), ('400', 'мм')])),
+    ('Холодильный шкаф Капри П-390С', frozenset()),
     ('Сушильный комплекс для древесины на 40 куб.м', frozenset([('40', 'м^3')])),
     ('Термопенал КЕДР П- 5 (220 В, 150 °C, загрузка 5 кг)', frozenset([('220', 'В'), ('150', '°C'), ('5', 'кг')]))
 ])
@@ -113,26 +116,10 @@ def test_with_properties_name__simple(input: str, data: dict):
     ('Переводник переходный НКТ 60х33 ГОСТ 23979-80 L=170 мм', {'Длина': ('170', 'мм')}),
     ('Сменная насадка VOLL для аппарата раструбной сварки, V-Weld, диаметр 32 мм', {'Диаметр': ('32', 'мм')}),
     ('Шнек для мотобура Carver GDB - 250/2, двухзаходный, для грунта, 250мм, L= 800мм, диаметр соединения 20мм (01. 003. 00051)',
-        {'Длина': ('800', 'мм'), 'Диаметр соединения': ('20', 'мм')}),
+        {'Длина': ('800', 'мм'), 'Диаметр соединения': ('20', 'мм'), 'Размер': ('250', 'мм')}),
     ('Форма-резак Цифра Три 25 см., высота 5 см.', {'Высота': ('5', 'см'), 'Размер': ('25', 'см')}),
     ('Станок заточный (точило) ЗУБР СТ - 200, 400Вт, 2950 об/мин, диаметр круга 200мм, толщина круга 20мм, для заточки инструмента и ножей',
-        {'Мощность': ('400', 'ВТ'), 'Диаметр круга': ('200', 'мм'), 'Толщина круга': ('20', 'мм')}),
+        {'Мощность': ('400', 'ВТ'), 'Диаметр круга': ('200', 'мм'), 'Толщина круга': ('20', 'мм'), 'Частота вращения': ('2950', 'об/мин')}),
 ])
 def test_with_properties_name__advanced(input: str, data: dict):
     run_with_property_names(input, data)
-
-# TODO test with properties
-# Станок заточный (точило) ЗУБР СТ - 200, 400Вт, 2950 об/мин, диаметр круга 200мм, толщина круга 20мм, для заточки инструмента и ножей
-# Форма-резак Цифра Три 25 см., высота 5 см.
-# Шнек для мотобура Carver GDB - 250/2, двухзаходный, для грунта, 250мм, L= 800мм, диаметр соединения 20мм (01. 003. 00051)
-# Сменная насадка VOLL для аппарата раструбной сварки, V-Weld, диаметр 32 мм
-# Переводник переходный НКТ 60х33 ГОСТ 23979-80 L=170 мм
-# Пруток сварочный ALSI 5, D= 2 мм.
-# Вкладыши шатуна ВК-108-02 Р2 d-99,0 мм на компрессор 2ВМ2,5-14/9
-# б/у
-# Штабелер подъемник ручной механический б/у
-# Столярные станки бу
-
-# ГОСТ
-# Страна
-# №5

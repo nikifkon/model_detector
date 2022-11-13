@@ -28,11 +28,10 @@ class ProductNameFinder(TokenBasedAlgorithm[ProductNameFinderResult]):
                     context, token = gen.send(+1)
                 chunk_end = context.value_index + isinstance(token, BreakToken)
                 res.append(ProductNameFinderResult(
-                    None,
                     token_seq.merge([(chunk_start, chunk_end)], lambda seq: ProductNameToken(str(seq.trim()))),
                     ProductNameToken(str(token_seq.get_sub(chunk_start, chunk_end).trim()))
                 ))
-        res.append(ProductNameFinderResult(None, token_seq, None))  # default res
+        res.append(ProductNameFinderResult(token_seq, None))  # default res
         return ProductNameSelector().select(res)
 
 

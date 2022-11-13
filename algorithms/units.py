@@ -1,4 +1,4 @@
-from algorithms.base import (EmptyLog, NewSequenceResult, TokenBasedAlgorithm)
+from algorithms.base import (NewSequenceResult, TokenBasedAlgorithm)
 from tokens import DigitToken, TokenSeq, CharToken, Sep, BreakToken, Token
 from data.units import UNIT_MAP, SUFFIXES, PREFIXES
 
@@ -100,7 +100,7 @@ class UnitExpression(Unit):
             return UNIT_MAP[self.norm.lower()]["name"]
 
 
-class UnitMerge(TokenBasedAlgorithm[NewSequenceResult[EmptyLog]]):
+class UnitMerge(TokenBasedAlgorithm[NewSequenceResult]):
     """
     unit_exp = {unit}({operator}{unit})*{end_condition}
     unit = {prefix}{u}{suffix}
@@ -112,7 +112,7 @@ class UnitMerge(TokenBasedAlgorithm[NewSequenceResult[EmptyLog]]):
     def end_condition(self, token):
         return isinstance(token, Sep)
 
-    def parse_by_tokens(self, token_seq: TokenSeq) -> NewSequenceResult[EmptyLog]:
+    def parse_by_tokens(self, token_seq: TokenSeq) -> NewSequenceResult:
         source = token_seq.generate_with_context()
         res = []
         for context, token in source:
@@ -149,7 +149,7 @@ class UnitMerge(TokenBasedAlgorithm[NewSequenceResult[EmptyLog]]):
                     units.append(token)
 
                     skipped_tokens.append(token)
-                if isinstance(token, Sep) and token.value in UnitExpression.valid_operators:
+                elif isinstance(token, Sep) and token.value in UnitExpression.valid_operators:
                     units.append(token)
                     skipped_tokens.append(token)
 
@@ -160,12 +160,12 @@ class UnitMerge(TokenBasedAlgorithm[NewSequenceResult[EmptyLog]]):
                         if unit_exp.is_valid:
                             break
                         prefix_len -= 1
+                    cont = False
+                    units.clear()
                     if prefix_len > 0:
                         res.append(unit_exp)
                     else:
                         res.extend(skipped_tokens)
-                    cont = False
-                    units.clear()
             if not cont:
                 if isinstance(token, Unit):
                     cont = True
@@ -173,4 +173,4 @@ class UnitMerge(TokenBasedAlgorithm[NewSequenceResult[EmptyLog]]):
                     skipped_tokens = [token]
                 else:
                     res.append(token)
-        return NewSequenceResult(None, TokenSeq(res))
+        return NewSequenceResult(TokenSeq(res))

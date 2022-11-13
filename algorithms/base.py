@@ -1,27 +1,13 @@
-from abc import ABCMeta, abstractclassmethod, abstractmethod
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Generic, TypeVar
-from typing_extensions import Self
 
 from tokens import TokenSeq
 
 
-class BaseLogEntry():
-    @abstractmethod
-    def dump_data(self) -> str:
-        pass
-
-    @abstractclassmethod
-    def load_data(cls, dump: str) -> Self:
-        pass
-
-
-TLogEntry = TypeVar('TLogEntry', bound=BaseLogEntry)
-
-
 @dataclass(eq=True, frozen=True)
-class BaseResult(Generic[TLogEntry], metaclass=ABCMeta):
-    logs: TLogEntry
+class BaseResult(metaclass=ABCMeta):
+    pass
 
 
 TResult = TypeVar('TResult', bound=BaseResult)
@@ -35,8 +21,8 @@ class BaseAlgorithm(Generic[TResult], metaclass=ABCMeta):
 
 
 class TokenBasedAlgorithm(BaseAlgorithm[TResult]):
-
-    def get_tokens(self, input: str) -> TokenSeq:
+    @staticmethod
+    def get_tokens(input: str) -> TokenSeq:
         return TokenSeq.from_string(input)
 
     def parse(self, input: str) -> TResult:
@@ -56,18 +42,9 @@ class BaseSelector(Generic[TResult], metaclass=ABCMeta):
 
 
 @dataclass(eq=True, frozen=True)
-class NewSequenceResult(Generic[TLogEntry], BaseResult[TLogEntry]):
+class NewSequenceResult(BaseResult):
     seq: TokenSeq
 
     # def __init__(self, seq: TokenSeq = None, **kwags):
     #     self.seq = seq
     #     super().__init__(**kwags)
-
-
-class EmptyLog(BaseLogEntry):
-    def dump_data(self) -> str:
-        return '{}'
-
-    @classmethod
-    def load_data(cls, dump: str) -> Self:
-        return cls()

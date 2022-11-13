@@ -1,7 +1,7 @@
 import pytest
 
 from tokens import TokenSeq
-from algorithms.numbers_merge import NumberMergeLog, NumbersMerge
+from algorithms.numbers_merge import NumbersMerge
 
 
 @pytest.mark.parametrize('input, token_values', [
@@ -27,14 +27,3 @@ def test_dont_merge(input: str, token_values: list[str]):
     res = NumbersMerge().parse_by_tokens(seq)
     for token, expected_value in zip(res.seq.iter_by_values(), token_values):
         assert token.value == expected_value
-
-
-@pytest.mark.parametrize('input, logs', [
-    ('Насос циркуляционный Stratos MAXO 65/0,5-9 PN6/10', NumberMergeLog([' '], ['/', ',', '-'], [' '])),
-    ('Насос многоступенчатый Lowara 1SV12F007T/D 3×230/400 0.75 кВт 1', NumberMergeLog([' ', ' '], ['×', '/', '.'], [' ', ' '])),
-    ('Проволока нержавеющая сварочная MIG ER-3210,8 мм', NumberMergeLog())
-])
-def test_logs(input, logs):
-    seq = TokenSeq.from_string(input)
-    res = NumbersMerge().parse_by_tokens(seq)
-    assert res.logs == logs
