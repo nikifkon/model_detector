@@ -50,7 +50,7 @@ def test_by_name_clear__with_article(connector, input: str, model_model: MM, met
 
 @pytest.mark.parametrize('input, model_model, method', [
     ('Дренажный насос ГНОМ 16-16 Д 220В (Ливны, с поплавком)',
-     MM('ГНОМ 16-16 Д', manuf := FM('Ливгидромаш', FS.VERIFIED), essence='Насос', series=SeriesModel('Гном', manuf)),
+     MM('ГНОМ 16-16 Д', manuf := FM('Ливгидромаш', FS.VERIFIED), essence='Насос', series=SeriesModel('Гном', SeriesStatus.VERIFIED, manuf)),
      hod.BY_SERIES),
 ])
 def test_by_series__simple(connector, input: str, model_model: ModelModel, method: ManufacturerMethod):
@@ -119,7 +119,7 @@ def test_find_model(connector, input: str):
     ('Ленточная пилорама Тайга Астрон Алтай Кедр в налич', FindManufacturersResult(None, frozenset(
         [FM('Тайга', FS.VERIFIED), FM('Кедр', FS.VERIFIED), FM('Астрон', FS.VERIFIED), FM('Алтай', FS.VERIFIED)]), hod.MULTY)),
     ('Дренажный насос ГНОМ 16-16 Д 220В (Ливны, с поплавком)',
-     FindManufacturersResult(None, frozenset([manuf := FM('Ливгидромаш', FS.VERIFIED)]), hod.BY_SERIES, SeriesModel('Гном', manufacturer=manuf, status=SeriesStatus.VERIFIED))),
+     FindManufacturersResult(None, frozenset([manuf := FM('Ливгидромаш', FS.VERIFIED)]), hod.BY_SERIES, SeriesModel('Гном', manufacturers=manuf, status=SeriesStatus.VERIFIED))),
     ('Wilo Tefal-100',
      FindManufacturersResult(None, frozenset([manuf := FM('Wilo', FS.VERIFIED)]), hod.BY_NAME_CLEAR)),
     ('Горелка ABICOR BINZEL ABITIG GRIP 17 F, 8 м',
@@ -137,7 +137,7 @@ def test_find_manufacturer(connector, input: str, expected_res: FindManufacturer
 
 @pytest.mark.parametrize('input, series', [
     ('Дренажный насос ГНОМ 16-16 Д 220В (Ливны, с поплавком)',
-     SeriesModel('Гном', status=SeriesStatus.VERIFIED, manufacturer=FM('Ливгидромаш', FS.VERIFIED))),
+     SeriesModel('Гном', status=SeriesStatus.VERIFIED, manufacturers=FM('Ливгидромаш', FS.VERIFIED))),
     ('Ленточная пилорама Тайга Астрон Алтай Кедр в налич', None),
 ])
 def test_find_series(connector, input: str, series: Optional[SeriesModel]):
